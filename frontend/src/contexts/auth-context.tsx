@@ -3,13 +3,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import axios from 'axios'
 
-interface User {
-    username: string
-    email: string
-    contact_name: string
-    company_name: string
-    is_superuser: boolean
-    phone_number?: string
+export interface User {
+    id: number;
+    username: string;
+    email: string;
+    contact_name?: string;
+    phone_number?: string;
+    company_name?: string;
+    business_number?: string;
+    is_active: boolean;
+    is_superuser: boolean;
+    created_at: string;
+    // Free Trial
+    trial_days: number;
+    trial_start_date: string | null;
+    trial_end_date: string | null;
+    subscription_status: string; // trial, active, expired
 }
 
 interface AuthContextType {
