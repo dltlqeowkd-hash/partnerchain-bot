@@ -9,6 +9,7 @@ interface User {
     contact_name: string
     company_name: string
     is_superuser: boolean
+    phone_number?: string
 }
 
 interface AuthContextType {
