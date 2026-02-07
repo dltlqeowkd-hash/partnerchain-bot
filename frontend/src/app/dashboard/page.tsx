@@ -55,10 +55,10 @@ export default function DashboardPage() {
     // 구독 상태 배지 색상
     const getStatusBadgeColor = (status: string) => {
         switch (status) {
-            case 'trial': return 'bg-blue-100 text-blue-800';
-            case 'active': return 'bg-green-100 text-green-800';
-            case 'expired': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
+            case 'trial': return 'bg-blue-500 text-white';
+            case 'active': return 'bg-green-500 text-white';
+            case 'expired': return 'bg-red-500 text-white';
+            default: return 'bg-gray-500 text-white';
         }
     }
 
@@ -132,10 +132,20 @@ export default function DashboardPage() {
         });
     }
 
+    const handleDownload = () => {
+        // 실제 봇 파일 다운로드 링크 (public 폴더에 파일 배치 필요)
+        const link = document.createElement('a');
+        link.href = '/downloads/NaverShop_Pro_v3.2.1.exe';
+        link.download = 'NaverShop_Pro_v3.2.1.exe';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center">
-                <p className="text-gray-600">로딩 중...</p>
+                <p className="text-gray-900 text-lg font-medium">로딩 중...</p>
             </div>
         )
     }
@@ -153,23 +163,23 @@ export default function DashboardPage() {
                         <h1 className="text-3xl font-bold text-gray-900">
                             안녕하세요, {user.username}님! 👋
                         </h1>
-                        <p className="text-gray-600 mt-2">대시보드에 오신 것을 환영합니다.</p>
+                        <p className="text-gray-700 mt-2 font-medium">대시보드에 오신 것을 환영합니다.</p>
                     </div>
 
                     {/* 무료 체험 정보 카드 */}
                     {user.subscription_status === 'trial' && (
-                        <Card className="mb-8 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <Card className="mb-8 border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50">
                             <CardHeader>
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <CardTitle className="text-xl text-gray-900">🎉 무료 체험 중</CardTitle>
-                                        <CardDescription className="text-gray-700 mt-1">
+                                        <CardDescription className="text-gray-800 mt-1 font-medium">
                                             {remainingDays > 0 ? (
-                                                <span className="font-semibold text-blue-700">
+                                                <span className="font-bold text-blue-700">
                                                     남은 기간: {remainingDays}일
                                                 </span>
                                             ) : (
-                                                <span className="font-semibold text-red-700">
+                                                <span className="font-bold text-red-700">
                                                     체험 기간이 만료되었습니다
                                                 </span>
                                             )}
@@ -181,7 +191,7 @@ export default function DashboardPage() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm text-gray-700 mb-4">
+                                <p className="text-sm text-gray-800 mb-4 font-medium">
                                     무료 체험 기간 동안 모든 기능을 자유롭게 사용해보세요!
                                 </p>
                                 {remainingDays === 0 && (
@@ -194,7 +204,7 @@ export default function DashboardPage() {
                     )}
 
                     {user.subscription_status === 'active' && (
-                        <Card className="mb-8 border-2 border-green-200 bg-gradient-to-r from-green-50 to-teal-50">
+                        <Card className="mb-8 border-2 border-green-300 bg-gradient-to-r from-green-50 to-teal-50">
                             <CardHeader>
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-xl text-gray-900">✅ 구독 활성</CardTitle>
@@ -204,7 +214,7 @@ export default function DashboardPage() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm text-gray-700">
+                                <p className="text-sm text-gray-800 font-medium">
                                     프리미엄 기능을 모두 이용하실 수 있습니다!
                                 </p>
                             </CardContent>
@@ -213,45 +223,45 @@ export default function DashboardPage() {
 
                     <div className="grid gap-8 md:grid-cols-2">
                         {/* User Profile */}
-                        <Card>
+                        <Card className="border-2">
                             <CardHeader>
-                                <CardTitle>내 정보</CardTitle>
-                                <CardDescription>계정 및 비즈니스 정보</CardDescription>
+                                <CardTitle className="text-gray-900">내 정보</CardTitle>
+                                <CardDescription className="text-gray-700">계정 및 비즈니스 정보</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-2">
                                 <div className="flex justify-between border-b pb-2">
-                                    <span className="font-medium">아이디</span>
-                                    <span>{user.username}</span>
+                                    <span className="font-semibold text-gray-900">아이디</span>
+                                    <span className="text-gray-900">{user.username}</span>
                                 </div>
                                 <div className="flex justify-between border-b pb-2">
-                                    <span className="font-medium">회사명</span>
-                                    <span>{user.company_name}</span>
+                                    <span className="font-semibold text-gray-900">회사명</span>
+                                    <span className="text-gray-900">{user.company_name}</span>
                                 </div>
                                 <div className="flex justify-between border-b pb-2">
-                                    <span className="font-medium">담당자</span>
-                                    <span>{user.contact_name}</span>
+                                    <span className="font-semibold text-gray-900">담당자</span>
+                                    <span className="text-gray-900">{user.contact_name}</span>
                                 </div>
                                 <div className="flex justify-between border-b pb-2">
-                                    <span className="font-medium">이메일</span>
-                                    <span>{user.email}</span>
+                                    <span className="font-semibold text-gray-900">이메일</span>
+                                    <span className="text-gray-900">{user.email}</span>
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* Subscription & Download */}
-                        <Card>
+                        <Card className="border-2">
                             <CardHeader>
-                                <CardTitle>구독 및 다운로드</CardTitle>
-                                <CardDescription>봇 이용 현황</CardDescription>
+                                <CardTitle className="text-gray-900">구독 및 다운로드</CardTitle>
+                                <CardDescription className="text-gray-700">봇 이용 현황</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <span className="font-medium">구독 상태</span>
+                                    <span className="font-semibold text-gray-900">구독 상태</span>
                                     <Badge className={getStatusBadgeColor(user.subscription_status)}>
                                         {getStatusText(user.subscription_status)}
                                     </Badge>
                                 </div>
-                                <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-600">
+                                <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-900 font-medium">
                                     {user.subscription_status === 'trial' && `현재 무료 체험 중입니다. (${remainingDays}일 남음)`}
                                     {user.subscription_status === 'active' && '정식 구독 중입니다.'}
                                     {user.subscription_status === 'expired' && '체험 기간이 만료되었습니다. 구독을 연장해주세요.'}
@@ -263,7 +273,11 @@ export default function DashboardPage() {
                                     >
                                         💳 구독 연장 (100원 결제)
                                     </Button>
-                                    <Button variant="outline" className="flex-1" onClick={() => router.push('/download/naver-shopping-bot')}>
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-semibold"
+                                        onClick={handleDownload}
+                                    >
                                         ⬇️ 봇 다운로드
                                     </Button>
                                 </div>
@@ -272,27 +286,27 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Notification Center */}
-                    <Card className="mt-8">
+                    <Card className="mt-8 border-2">
                         <CardHeader>
-                            <CardTitle>알림함 (Mailbox)</CardTitle>
-                            <CardDescription>시리얼 키 발급 및 중요 공지사항</CardDescription>
+                            <CardTitle className="text-gray-900">알림함 (Mailbox)</CardTitle>
+                            <CardDescription className="text-gray-700">시리얼 키 발급 및 중요 공지사항</CardDescription>
                         </CardHeader>
                         <CardContent>
                             {notifications.length === 0 ? (
-                                <div className="text-center text-muted-foreground py-8">받은 메시지가 없습니다.</div>
+                                <div className="text-center text-gray-600 py-8 font-medium">받은 메시지가 없습니다.</div>
                             ) : (
                                 <div className="space-y-4">
                                     {notifications.map((noti) => (
-                                        <div key={noti.id} className={`p-4 rounded-lg border ${noti.is_read ? 'bg-gray-50' : 'bg-blue-50 border-blue-200'}`}>
+                                        <div key={noti.id} className={`p-4 rounded-lg border-2 ${noti.is_read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-300'}`}>
                                             <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-lg">
+                                                <h4 className="font-bold text-lg text-gray-900">
                                                     {noti.title} {!noti.is_read && <Badge className="ml-2 bg-red-500">NEW</Badge>}
                                                 </h4>
-                                                <span className="text-xs text-gray-500">{new Date(noti.created_at).toLocaleString()}</span>
+                                                <span className="text-xs text-gray-600 font-medium">{new Date(noti.created_at).toLocaleString()}</span>
                                             </div>
-                                            <p className="whitespace-pre-wrap text-sm text-gray-700">{noti.content}</p>
+                                            <p className="whitespace-pre-wrap text-sm text-gray-900">{noti.content}</p>
                                             {!noti.is_read && (
-                                                <Button size="sm" variant="ghost" className="mt-2 text-blue-600" onClick={() => markAsRead(noti.id)}>
+                                                <Button size="sm" variant="ghost" className="mt-2 text-blue-600 font-semibold" onClick={() => markAsRead(noti.id)}>
                                                     읽음 표시
                                                 </Button>
                                             )}
