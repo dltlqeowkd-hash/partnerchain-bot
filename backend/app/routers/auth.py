@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 from .. import models, schemas, auth_utils, dependencies
 
 router = APIRouter(tags=["Authentication"])
@@ -16,6 +17,11 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(dependencies.get
         raise HTTPException(status_code=400, detail="Email already registered")
     
     hashed_password = auth_utils.get_password_hash(user.password)
+    
+    # 무료 체험 자동 활성화 (기본 3일)
+    trial_start = datetime.now()
+    trial_end = trial_start + timedelta(days=3)
+    
     db_user = models.User(
         username=user.username,
         email=user.email,
@@ -23,7 +29,12 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(dependencies.get
         contact_name=user.contact_name,
         phone_number=user.phone_number,
         company_name=user.company_name,
-        business_number=user.business_number
+        business_number=user.business_number,
+        # 무료 체험 설정
+        trial_days=3,
+        trial_start_date=trial_start,
+        trial_end_date=trial_end,
+        subscription_status="trial"
     )
     db.add(db_user)
     db.commit()

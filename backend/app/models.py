@@ -17,6 +17,12 @@ class User(Base):
     company_name = Column(String, nullable=True)
     business_number = Column(String, nullable=True) # Optional
     
+    # Free Trial System
+    trial_days = Column(Integer, default=3)  # 기본 3일 무료 체험
+    trial_start_date = Column(DateTime(timezone=True), nullable=True)
+    trial_end_date = Column(DateTime(timezone=True), nullable=True)
+    subscription_status = Column(String, default="trial")  # trial, active, expired
+    
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

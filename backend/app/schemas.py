@@ -33,6 +33,12 @@ class User(UserBase):
     phone_number: Optional[str] = None
     company_name: Optional[str] = None
     business_number: Optional[str] = None
+    
+    # Free Trial
+    trial_days: int
+    trial_start_date: Optional[datetime] = None
+    trial_end_date: Optional[datetime] = None
+    subscription_status: str
 
     class Config:
         orm_mode = True

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import auth, license, notification, payment, version
+from .routers import auth, license, notification, payment, version, admin
 import uvicorn
 import os
 from dotenv import load_dotenv
@@ -35,6 +35,7 @@ app.include_router(license.router)
 app.include_router(notification.router)
 app.include_router(payment.router)
 app.include_router(version.router)
+app.include_router(admin.router)
 # app.include_router(log.router) # Will add later
 
 @app.get("/")
