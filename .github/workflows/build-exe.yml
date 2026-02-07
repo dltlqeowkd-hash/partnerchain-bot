@@ -1,0 +1,91 @@
+name: Build and Release EXE
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 예: v1.0.5 태그 생성 시 자동 빌드
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.5)'
+        required: true
+        type: string
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+        working-directory: .
+      
+      - name: Extract version
+        id: extract_version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+      
+      - name: Update version in auto_updater.py
+        shell: bash
+        run: |
+          VERSION="${{ steps.extract_version.outputs.VERSION }}"
+          sed -i "s/CLIENT_VERSION = \".*\"/CLIENT_VERSION = \"$VERSION\"/" auto_updater.py
+      
+      - name: Build EXE with PyInstaller
+        run: python build_release.py
+      
+      - name: List built files
+        run: dir dist
+      
+      - name: Rename EXE with version and date
+        shell: bash
+        run: |
+          VERSION="${{ steps.extract_version.outputs.VERSION }}"
+          DATE=$(date +%Y%m%d)
+          cd dist
+          # build_release.py가 생성한 EXE 찾기 (예: NaverBot.exe)
+          ORIGINAL_EXE=$(ls *.exe | head -n 1)
+          NEW_NAME="NaverBot_v${VERSION}_${DATE}.exe"
+          mv "$ORIGINAL_EXE" "$NEW_NAME"
+          echo "Renamed to: $NEW_NAME"
+      
+      - name: Upload to Cloudflare R2
+        uses: shallwefootball/s3-upload-action@master
+        with:
+          aws_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          aws_bucket: ${{ secrets.R2_BUCKET_NAME }}
+          endpoint: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          source_dir: dist/
+          destination_dir: ''
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Notify build status
+        if: success()
+        run: echo "✅ EXE build and upload completed!"

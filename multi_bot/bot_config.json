@@ -1,0 +1,35 @@
+{
+    "min_time_min": 4,
+    "max_time_min": 5,
+    "mode": "Random",
+    "delays": {
+        "search_delay_min": 500,
+        "search_delay_max": 1000,
+        "scroll_delay_min": 800,
+        "scroll_delay_max": 2500,
+        "click_delay_min": 1000,
+        "click_delay_max": 2000
+    },
+    "smart_schedule": true,
+    "include_ads": false,
+    "max_pages": 3,
+    "targets_shopping": [
+        {
+            "keyword": "라면조리기",
+            "keyword_2": "다오 부글 한강 라면 끓이는 기계 맛있게 끓이는 법 라면조리기 인덕션 전기 포트",
+            "id": "90540603946",
+            "success_count": 5
+        }
+    ],
+    "targets_blog": [
+        {
+            "keyword": "USB4 2.0 썬더볼트5 ",
+            "keyword_2": "USB4 2.0 썬더볼트5 케이블, 왜 지금 이게 필요한가?",
+            "id": "https://blog.naver.com/nobody_tell/224164444822",
+            "product_link": "https://naver.me/Gq9qcgEH",
+            "success_count": 7
+        }
+    ],
+    "work_type": "blog",
+    "mixed_mode": false
+}

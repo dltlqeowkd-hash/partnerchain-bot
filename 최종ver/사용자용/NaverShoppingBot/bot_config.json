@@ -1,0 +1,17 @@
+{
+    "min_time_min": 2,
+    "max_time_min": 3,
+    "mode": "PC",
+    "smart_schedule": true,
+    "include_ads": true,
+    "max_pages": 3,
+    "targets": [],
+    "delays": {
+        "search_delay_min": 500,
+        "search_delay_max": 1000,
+        "scroll_delay_min": 800,
+        "scroll_delay_max": 2500,
+        "click_delay_min": 1000,
+        "click_delay_max": 2000
+    }
+}
