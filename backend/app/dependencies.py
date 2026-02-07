@@ -5,8 +5,11 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from . import models, schemas, database, auth_utils
 
-# Use the tokenUrl that points to our login endpoint
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+# 기본 인증용 (auto_error=True)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Optional 인증용 (auto_error=False)
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 def get_db():
     db = database.SessionLocal()
@@ -36,7 +39,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     return user
 
 async def get_current_user_optional(
-    token: Optional[str] = Depends(oauth2_scheme), 
+    token: Optional[str] = Depends(oauth2_scheme_optional), 
     db: Session = Depends(get_db)
 ) -> Optional[models.User]:
     """Optional authentication - returns None if not authenticated"""
@@ -69,4 +72,3 @@ async def get_current_admin_user(current_user: models.User = Depends(get_current
     if not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
-
