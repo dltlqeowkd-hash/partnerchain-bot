@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/contexts/auth-context'
 
 const productsData: any = {
     'naver-shopping-bot': {
@@ -68,6 +69,7 @@ const productsData: any = {
 export default function ProductDetailPage() {
     const params = useParams()
     const router = useRouter()
+    const { user } = useAuth()
     const id = params.id as string
     const product = productsData[id]
 
@@ -153,19 +155,41 @@ export default function ProductDetailPage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    <Button
-                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg"
-                                        onClick={() => router.push('/signup')}
-                                    >
-                                        무료 체험 시작하기
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50 py-6 text-lg"
-                                        onClick={() => router.push(`/download/${id}`)}
-                                    >
-                                        프로그램 다운로드
-                                    </Button>
+                                    {user ? (
+                                        // 로그인 상태: 대시보드로 이동
+                                        <>
+                                            <Button
+                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg"
+                                                onClick={() => router.push('/dashboard')}
+                                            >
+                                                대시보드로 이동
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50 py-6 text-lg"
+                                                onClick={() => router.push(`/download/${id}`)}
+                                            >
+                                                프로그램 다운로드
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        // 비로그인 상태: 회원가입
+                                        <>
+                                            <Button
+                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg"
+                                                onClick={() => router.push('/signup')}
+                                            >
+                                                무료 체험 시작하기
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50 py-6 text-lg"
+                                                onClick={() => router.push(`/download/${id}`)}
+                                            >
+                                                프로그램 다운로드
+                                            </Button>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="text-sm text-gray-600 text-center space-y-2 pt-4 border-t">

@@ -105,8 +105,19 @@ export default function DownloadPage() {
     }
 
     const handleDownload = () => {
-        // 실제 다운로드 로직 (예: 백엔드 API 호출 후 파일 링크 제공)
-        alert(`준비 중입니다.\n파일: ${downloadInfo.name} (${downloadInfo.version})\n\n실제 서비스에서는 로그인 후 구독 중인 사용자만 다운로드할 수 있습니다.`)
+        // 실제 다운로드 로직: 브라우저가 파일을 다운로드하도록 트리거
+        // 임시로 GitHub releases 또는 외부 링크를 사용
+        const link = document.createElement('a');
+        link.href = downloadInfo.downloadPath; // 예: '/files/NaverShopPro_v3.2.1.exe'
+        link.download = `${downloadInfo.name}_${downloadInfo.version}.exe`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 파일이 실제로 없는 경우 사용자에게 알림
+        setTimeout(() => {
+            alert(`다운로드 준비 중입니다.\n\n실제 서비스에서는 로그인 후 구독 플랜에 따라\n프로그램 파일이 자동으로 다운로드됩니다.\n\n현재는 데모 환경이므로 파일이 제공되지 않습니다.`);
+        }, 500);
     }
 
     return (

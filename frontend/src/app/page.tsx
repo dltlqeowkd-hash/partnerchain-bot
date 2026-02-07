@@ -1,8 +1,13 @@
+'use client'
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function Home() {
+  const { user } = useAuth();
+
   return (
     <div className="flex min-h-screen flex-col">
       <section className="relative flex-1 flex items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-black px-4 py-24 text-center text-white">
@@ -22,16 +27,28 @@ export default function Home() {
             검증된 알고리즘으로 당신의 비즈니스를 상위 노출시키세요.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href="/signup">
-              <Button size="lg" className="h-14 min-w-[200px] text-lg font-bold bg-white text-indigo-900 hover:bg-gray-100">
-                무료 체험 시작하기
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button size="lg" variant="outline" className="h-14 min-w-[200px] text-lg border-white text-white hover:bg-white/10">
-                로그인
-              </Button>
-            </Link>
+            {user ? (
+              // 로그인 상태: 대시보드로 이동
+              <Link href="/dashboard">
+                <Button size="lg" className="h-14 min-w-[200px] text-lg font-bold bg-white text-indigo-900 hover:bg-gray-100">
+                  대시보드로 이동
+                </Button>
+              </Link>
+            ) : (
+              // 비로그인 상태: 회원가입 & 로그인
+              <>
+                <Link href="/signup">
+                  <Button size="lg" className="h-14 min-w-[200px] text-lg font-bold bg-white text-indigo-900 hover:bg-gray-100">
+                    무료 체험 시작하기
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button size="lg" variant="outline" className="h-14 min-w-[200px] text-lg border-white text-white hover:bg-white/10">
+                    로그인
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
