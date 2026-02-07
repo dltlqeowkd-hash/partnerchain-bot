@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
+// 환경 변수에서 API 주소 가져오기 (없으면 localhost 사용)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function SignupPage() {
     const [formData, setFormData] = useState({
         username: '',
@@ -36,7 +39,7 @@ export default function SignupPage() {
         }
 
         try {
-            await axios.post('http://localhost:8000/signup', {
+            await axios.post(`${API_URL}/signup`, {
                 username: formData.username,
                 email: formData.email,
                 password: formData.password,

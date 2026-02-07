@@ -15,6 +15,8 @@ declare global {
     }
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface Notification {
     id: number
     title: string
@@ -42,7 +44,7 @@ export default function DashboardPage() {
 
     const fetchNotifications = async () => {
         try {
-            const res = await axios.get('http://localhost:8000/notifications/my')
+            const res = await axios.get(`${API_URL}/notifications/my`)
             setNotifications(res.data)
         } catch (err) {
             console.error(err)
@@ -51,7 +53,7 @@ export default function DashboardPage() {
 
     const markAsRead = async (id: number) => {
         try {
-            await axios.put(`http://localhost:8000/notifications/${id}/read`)
+            await axios.put(`${API_URL}/notifications/${id}/read`)
             fetchNotifications()
         } catch (err) {
             console.error(err)
@@ -84,7 +86,7 @@ export default function DashboardPage() {
             if (rsp.success) {
                 try {
                     // 백엔드 검증 및 라이선스 발급 요청
-                    await axios.post('http://localhost:8000/payment/complete', {
+                    await axios.post(`${API_URL}/payment/complete`, {
                         imp_uid: rsp.imp_uid,
                         merchant_uid: rsp.merchant_uid,
                         amount: rsp.paid_amount

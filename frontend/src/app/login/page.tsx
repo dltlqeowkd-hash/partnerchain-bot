@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function LoginPage() {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
@@ -24,10 +26,10 @@ export default function LoginPage() {
             formData.append('username', username)
             formData.append('password', password)
 
-            const res = await axios.post('http://localhost:8000/token', formData)
+            const res = await axios.post(`${API_URL}/token`, formData)
             const token = res.data.access_token
 
-            const userRes = await axios.get('http://localhost:8000/users/me', {
+            const userRes = await axios.get(`${API_URL}/users/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
 
