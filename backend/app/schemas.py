@@ -118,8 +118,27 @@ class Payment(PaymentBase):
     class Config:
         orm_mode = True
 
+# ChatMessage
+class ChatMessageBase(BaseModel):
+    message: str
+
+class ChatMessageCreate(ChatMessageBase):
+    guest_id: Optional[str] = None
+
+class ChatMessage(ChatMessageBase):
+    id: int
+    user_id: Optional[int] = None
+    guest_id: Optional[str] = None
+    is_admin: bool
+    is_read: bool
+    created_at: datetime
+    
+    class Config:
+        orm_mode = True
+
 class UserWithDetails(User):
     licenses: List[License] = []
     logs: List[BotLog] = []
     notifications: List[Notification] = []
     payments: List[Payment] = []
+
