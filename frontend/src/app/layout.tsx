@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { AuthProvider } from "@/contexts/auth-context";
+import ChatWidget from "@/components/chat-widget";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,6 +23,7 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           <main>{children}</main>
+          <ChatWidget />
         </AuthProvider>
       </body>
     </html>
