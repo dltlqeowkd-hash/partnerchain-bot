@@ -7,13 +7,8 @@ import subprocess
 import tkinter as tk
 from tkinter import messagebox
 
-# 스크립트 디렉토리를 Python 경로에 추가
-script_dir = os.path.dirname(os.path.abspath(__file__))
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
-
 # 설정
-SERVER_URL = "http://localhost:8000"
+SERVER_URL = "http://localhost:8001"
 LICENSE_FILE = "license.dat"
 BOT_SCRIPT = "multi_bot.py"
 
@@ -43,30 +38,19 @@ def verify_and_launch(key_entry, root):
     hwid = get_hwid()
     
     try:
-        # 1. Activate first (Bind HWID if unused)
-        act_resp = requests.post(f"{SERVER_URL}/api/activate", json={"key": key, "hwid": hwid})
+        response = requests.post(f"{SERVER_URL}/verify", json={"key_string": key, "hwid": hwid})
+        data = response.json()
         
-        if act_resp.status_code == 200:
-            # Activation success or already active on this machine
-            # 2. Validate to get details
-            val_resp = requests.post(f"{SERVER_URL}/api/validate", json={"key": key, "hwid": hwid})
-            data = val_resp.json()
-            
-            if data.get("valid"):
-                messagebox.showinfo("인증 성공", f"라이선스 인증 완료!\n만료일: {data.get('expiration_date')}\n메모: {data.get('memo')}")
-                save_license(key)
-                root.destroy() # Close launcher
-                launch_bot(data) # Pass full license data
-            else:
-                 messagebox.showerror("인증 실패", f"유효하지 않은 라이선스입니다.\n{data.get('message')}")
+        if data.get("valid"):
+            messagebox.showinfo("인증 성공", f"라이선스 인증 완료!\\n만료일: {data.get('expires_at')}")
+            save_license(key)
+            root.destroy() # 런처 닫기
+            launch_bot(data.get('expires_at')) # 봇 실행
         else:
-            # Activation failed (e.g. key bound to other PC)
-            err_data = act_resp.json()
-            err_msg = err_data.get("detail") or err_data.get("message")
-            messagebox.showerror("인증 실패", f"라이선스 활성화 실패:\n{err_msg}")
+            messagebox.showerror("인증 실패", f"라이선스 인증 실패:\\n{data.get('message')}")
             
     except Exception as e:
-        messagebox.showerror("서버 오류", f"인증 서버에 연결할 수 없습니다.\n{e}\n\n라이선스 서버가 실행 중인지 확인해주세요.")
+        messagebox.showerror("서버 오류", f"인증 서버에 연결할 수 없습니다.\\n{e}\\n\\n라이선스 서버가 실행 중인지 확인해주세요.")
 
 
 CHROME_PATH = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"

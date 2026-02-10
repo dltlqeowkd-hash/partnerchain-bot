@@ -6,6 +6,12 @@ import requests
 import subprocess
 import tkinter as tk
 from tkinter import messagebox
+
+# 스크립트 디렉토리를 Python 경로에 추가
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
 from auto_updater import auto_update_check
 
 # Configuration

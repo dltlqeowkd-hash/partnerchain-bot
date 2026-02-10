@@ -1,8 +1,10 @@
 import tkinter as tk
+from tkinter import scrolledtext
 import webbrowser
 import requests # [추가] 서버 통신용
 from tkinter import ttk, messagebox, filedialog, simpledialog
 from PIL import Image, ImageTk
+from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -27,17 +29,7 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # --- LICENSE CHECK START ---
-# LICENSE_DATA = None
-# try:
-#     from license_check import check_license
-#     LICENSE_DATA = check_license()
-#     if not LICENSE_DATA or not LICENSE_DATA.get("valid"):
-#         print("License verification failed. Exiting.")
-#         sys.exit(1)
-# except ImportError:
-#     print("Warning: license_check.py not found. Skipping check.")
-#     pass
-LICENSE_DATA = None # Default to None
+# Main entry point handles license check now.
 # --- LICENSE CHECK END ---
 
 from webdriver_manager.chrome import ChromeDriverManager
@@ -321,8 +313,8 @@ class BotLogic:
     def get_schedule_multiplier(self):
         if not self.config.get("smart_schedule", False): return 1.0
         hour = time.localtime().tm_hour
-        if 0 <= hour < 7: return 4.0
-        if 7 <= hour < 10: return 1.5
+        if 0 <= hour < 7: return 1.5 # [변경] 4.0 -> 1.5 (테스트 용이성 및 과도한 지연 방지)
+        if 7 <= hour < 10: return 1.2 # [변경] 1.5 -> 1.2
         if 10 <= hour < 19: return 1.0
         if 19 <= hour < 24: return 0.8
         return 1.0
@@ -331,7 +323,8 @@ class BotLogic:
         base = random.randint(min_t * 60, max_t * 60)
         mult = self.get_schedule_multiplier()
         final = int(base * mult)
-        self.log(f"스마트 스케줄 적용: {mult}배 (다음 사이클 대기: {final}초)")
+        if mult != 1.0:
+            self.log(f"⚡ 스마트 스케줄 자동 조정: x{mult}배 (현재시간 반영) -> 최종 {final}초")
         return final
 
     def find_target_on_page(self, t_id, include_ads):
@@ -392,6 +385,7 @@ class BotLogic:
                         self.log(f"⚠️ {current_work} 타겟이 없어 건너뜁니다.")
                         continue
                         
+                    # 드라이버 셋업
                     if not self.setup_driver(mode_setting):
                         time.sleep(5)
                         continue
@@ -413,50 +407,49 @@ class BotLogic:
                     include_ads = self.config.get('include_ads', True)
                     wait = WebDriverWait(self.driver, 10)
 
-                    # [NEW] 예열 로직 시작 - DAUM/NATE
+                    # [NEW] 예열 로직 시작 - DAUM/NATE (30초 ~ 1분 소요)
                     portal = random.choice(["https://www.daum.net", "https://www.nate.com"])
-                    self.log(f"[예열 1단계] {portal.split('//')[1]} 접속")
-                    self.driver.get(portal)
-                    time.sleep(2)
-                    
-                    for _ in range(2):
-                        if not self.is_running:
-                            self.log("⛔ 사용자가 중지 요청")
-                            break
-                        kw = random.choice(GENERIC_KEYWORDS)
-                        self.log(f"[예열] 검색: {kw}")
-                        try:
-                            search = None
-                            if "daum" in portal:
-                                try: search = self.driver.find_element(By.ID, "q")
-                                except: search = self.driver.find_element(By.NAME, "q")
-                            else:
-                                try: search = self.driver.find_element(By.ID, "q")
-                                except: search = self.driver.find_element(By.NAME, "q")
-                            
-                            if search:
-                                self.human_typing(search, kw)
-                                search.send_keys(Keys.RETURN)
-                                time.sleep(2)
-                                self.check_and_switch_tab()
-                                self.human_scroll(max_scrolls=2)
-                                try:
-                                    links = self.driver.find_elements(By.TAG_NAME, "a")
-                                    valid_links = [l for l in links if l.is_displayed() and len(l.text) > 4]
-                                    if valid_links:
-                                        l = random.choice(valid_links[:8])
-                                        l.click()
-                                        time.sleep(self.get_delay("click_delay"))
-                                        self.check_and_switch_tab()
-                                        self.human_scroll(max_scrolls=1)
-                                        if len(self.driver.window_handles) > 1:
-                                            self.driver.close()
-                                            self.driver.switch_to.window(self.driver.window_handles[0])
-                                        else:
-                                            self.driver.back()
+                    self.log(f"🔥 [예열] 브라우저 워밍업 시작 ({portal.split('//')[1]})")
+                    try:
+                        self.driver.get(portal)
+                        time.sleep(2)
+                        
+                        # 간단한 검색어 입력 및 스크롤
+                        warmup_kw = random.choice(GENERIC_KEYWORDS)
+                        self.log(f"   - 검색어 입력: {warmup_kw}")
+                        
+                        search_box = None
+                        if "daum" in portal:
+                            try: search_box = self.driver.find_element(By.NAME, "q")
+                            except: pass
+                        else:
+                            try: 
+                                search_box = self.driver.find_element(By.ID, "q") # nate
+                            except: 
+                                try: search_box = self.driver.find_element(By.NAME, "q")
                                 except: pass
-                        except: pass
-                    
+                            
+                        if search_box:
+                            try:
+                                # [수정] 상호작용 가능할 때까지 대기
+                                wait_warmup = WebDriverWait(self.driver, 5)
+                                if "daum" in portal:
+                                    wait_warmup.until(EC.element_to_be_clickable((By.NAME, "q")))
+                                else:
+                                    try: wait_warmup.until(EC.element_to_be_clickable((By.ID, "q")))
+                                    except: wait_warmup.until(EC.element_to_be_clickable((By.NAME, "q")))
+                                    
+                                self.human_typing(search_box, warmup_kw)
+                                search_box.send_keys(Keys.RETURN)
+                                time.sleep(2)
+                                self.human_scroll(max_scrolls=2)
+                                time.sleep(1)
+                            except: pass # 예열 중 오류는 조용히 넘어감
+                            
+                        self.log("✅ 예열 완료. 네이버로 이동합니다.")
+                    except Exception as e:
+                        self.log(f"⚠️ 예열 중 오류 (무시하고 진행): {e}")
+
                     # [NEW] 예열 2단계 - 네이버 메인
                     if self.is_running:
                         self.log("[예열 2단계] 네이버 메인 접속")
@@ -546,6 +539,7 @@ class BotLogic:
                                 time.sleep(3)
                         return False
 
+    
                     def search_and_find_blog(kw, target_kw_check, target_link_id, product_link="", is_retry=False):
                         mode_str = "2차(확정)" if is_retry else "1차(도전)"
                         self.log(f"[블로그] {mode_str} 시작 - 네이버 페이크 검색")
@@ -577,176 +571,219 @@ class BotLogic:
                         except: return False
                         self.check_and_switch_tab()
                         
-                        # [수정] '검색결과 더보기' 버튼을 찾기 위해 페이지 끝까지 스크롤
-                        self.log("📜 '검색결과 더보기' 버튼 찾기 위해 스크롤 시작...")
-                        found_more = False
-                        last_height = 0
+                        # --- 내부 함수: 현재 화면에서 블로그 찾기 ---
+                        def find_blog_post_and_click():
+                            # [우선순위 1] href 기반 블로그 링크 직접 검색 (가장 정확)
+                            # "검색결과 더보기" 클릭 후 페이지는 다른 HTML 구조 사용
+                            # 어제 채팅 기록 참고: a[href*='blog.naver.com'] 방식이 가장 확실
+                            blog_links = []
+                            try:
+                                # CSS Selector로 블로그 링크 직접 수집
+                                blog_links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='blog.naver.com']")
+                                if blog_links:
+                                    self.log(f"🔍 블로그 링크 검색 (href 기반)... {len(blog_links)}개 발견")
+                            except: pass
+                            
+                            # [우선순위 2] 기존 XPath 방식 (일반 검색 페이지용 백업)
+                            if not blog_links:
+                                try:
+                                    articles = self.driver.find_elements(By.XPATH, "//li[contains(@class, 'bx')] | //li[contains(@class, 'sh_blog_top')] | //div[contains(@class, 'total_wrap')]")
+                                    self.log(f"🔎 스캔 대상 게시글 수 (XPath): {len(articles)}")
+                                except: articles = []
+                            else:
+                                articles = []  # href 기반 검색 성공 시 XPath는 건너뜀
+                            
+                            # href 기반 링크를 우선 처리
+                            all_items = list(blog_links) + list(articles)
+                            
+                            valid_articles = []
+                            for i, art in enumerate(all_items):
+                                if not self.is_running: return False
+                                try:
+                                    text_content = art.text
+                                    
+                                    # [링크 추출]
+                                    href = ""
+                                    target_el = None
+                                    try:
+                                        # href 기반 검색인 경우 바로 가져오기
+                                        if art in blog_links:
+                                            href = art.get_attribute("href")
+                                            target_el = art
+                                        else:
+                                            # 기존 방식 (여러 셀렉터 시도)
+                                            try: target_el = art.find_element(By.CSS_SELECTOR, "a.api_txt_lines"); href = target_el.get_attribute("href")
+                                            except: 
+                                                try: target_el = art.find_element(By.CSS_SELECTOR, "a.total_tit"); href = target_el.get_attribute("href")
+                                                except: 
+                                                    try: target_el = art.find_element(By.CSS_SELECTOR, "a.title_link"); href = target_el.get_attribute("href")
+                                                    except: 
+                                                        try: target_el = art.find_element(By.CSS_SELECTOR, "a.link_tit"); href = target_el.get_attribute("href")
+                                                        except: target_el = art.find_element(By.TAG_NAME, "a"); href = target_el.get_attribute("href")
+                                    except: pass
+                                    
+                                    # [필터링] search.naver.com 링크는 무시 (정렬 버튼 등)
+                                    if "search.naver.com" in href:
+                                        continue
+
+                                    # [DEBUG] 상세 로그 출력 (상위 10개만)
+                                    if i < 10:
+                                        preview = text_content[:20].replace('\n', ' ') if text_content else "(텍스트 없음)"
+                                        self.log(f"   [{i}] {preview}... | Link: {href}")
+
+                                    # [2] ID/식별자 매칭
+                                    is_match = False
+                                    
+                                    # [2] ID/식별자 매칭
+                                    is_match = False
+                                    
+                                    # 2-1. 텍스트 매칭
+                                    if str(target_link_id) in text_content:
+                                        is_match = True
+                                        self.log(f"✅ ID 텍스트 매칭 성공! ({target_link_id})")
+                                    
+                                    # 2-2. URL/ID 매칭
+                                    if not is_match and href:
+                                        # (A) 단순 URL 포함 여부 (기존 방식 개선)
+                                        # 쿼리 파라미터가 날라가는 문제 해결을 위해 ? 제거 로직 수정
+                                        clean_target_base = str(target_link_id).replace("https://", "").replace("http://", "").replace("m.", "").replace("www.", "").strip('/')
+                                        clean_href_body = href.replace("https://", "").replace("http://", "").replace("m.", "").replace("www.", "")
+                                        
+                                        if clean_target_base in clean_href_body:
+                                            is_match = True
+                                            self.log(f"✅ ID 링크 매칭 성공 (URL Contain)! \n   Target: {clean_target_base} \n   Href: {clean_href_body}")
+
+                                        # (B) 블로그 글 번호(숫자 ID) 매칭 - 가장 강력한 방법
+                                        if not is_match and "blog.naver.com" in str(target_link_id):
+                                            try:
+                                                import re
+                                                # URL 끝의 숫자 추출 (예: .../22416444822 -> 22416444822)
+                                                # PostView.naver?logNo=22416444822 대응
+                                                
+                                                # 1. 타겟 ID에서 숫자 추출
+                                                target_nums = re.findall(r'\d+', str(target_link_id))
+                                                if target_nums:
+                                                    post_id = target_nums[-1] # 보통 마지막 숫자가 글 번호 (날짜 등 제외)
+                                                    
+                                                    # 글 번호가 10자리 이상인지 확인 (네이버 블로그 ID는 보통 길다)
+                                                    if len(post_id) >= 10:
+                                                        if post_id in href:
+                                                            is_match = True
+                                                            self.log(f"✅ ID 링크 매칭 성공 (Post ID)! ID: {post_id}")
+                                            except: pass
+                                    
+                                    if is_match:
+                                        self.log(f"✨ 타겟 발견! 진입 시도...")
+                                        blog_clicked = False
+                                        try:
+                                            # 클릭할 요소 (제목 링크 권장)
+                                            try: 
+                                                if target_el and target_el.is_displayed():
+                                                    click_el = target_el
+                                                else:
+                                                    click_el = art.find_element(By.TAG_NAME, "a")
+                                            except: click_el = art
+                                            
+                                            self.mouse.smooth_move_to(click_el)
+                                            time.sleep(random.uniform(1, 2))  # 마우스 이동 후 자연스러운 대기
+                                            click_el.click()
+                                            
+                                            # 새 탭 전환
+                                            time.sleep(random.uniform(2, 4))  # 페이지 로딩 대기 (자연스럽게)
+                                            self.check_and_switch_tab()
+                                            self.log(f"📄 현재 탭: {self.driver.title}")
+                                            time.sleep(random.uniform(1, 2))  # 탭 전환 후 잠시 대기
+                                            blog_clicked = True
+                                        except Exception as e:
+                                            self.log(f"❌ 클릭 실패: {e}")
+                                            return False
+                                        
+                                        # 블로그 클릭 성공 → 내부 로직으로 진행 (naver.me 찾기)
+                                        if blog_clicked:
+                                            return True  # 일단 find_blog_post_and_click()에서는 True 반환
+                                except Exception as e:
+                                    # self.log(f"⚠️ 요소 분석 중 오류: {e}")
+                                    pass
+                            return False
+
+                        # 1단계: 검색 직후 즉시 스캔 (상단 노출된 경우)
+                        self.log("🔍 1차 스캔: 상단 노출 여부 확인...")
+                        blog_found = find_blog_post_and_click()
                         
-                        for scroll_attempt in range(20):  # 최대 20번 스크롤 (기존 8번에서 증가)
-                            if not self.is_running: break
+                        if not blog_found:
+                            self.log("ℹ️ 상단에 없음. '검색결과 더보기' 시도...")
+
+                            # 2단계: 자연스러운 스크롤로 '검색결과 더보기' 버튼 찾기
+                            # [수정] Keys.END 대신 PAGE_DOWN으로 천천히 스크롤
+                            self.log("📜 페이지를 천천히 스크롤하며 '더보기' 버튼 탐색...")
+                            last_height = self.driver.execute_script("return document.body.scrollHeight")
+                            scroll_count = 0
+                            max_scrolls = 20  # 최대 20회 스크롤
                             
-                            # 현재 페이지 높이 확인
-                            current_height = self.driver.execute_script("return document.body.scrollHeight")
+                            for i in range(max_scrolls):
+                                 if not self.is_running: break
+                                 try:
+                                     # 천천히 PAGE_DOWN으로 스크롤 (자연스러운 동작)
+                                     body = self.driver.find_element(By.TAG_NAME, "body")
+                                     body.send_keys(Keys.PAGE_DOWN)
+                                     scroll_count += 1
+                                     time.sleep(random.uniform(0.3, 0.6))  # 랜덤 대기 (더 자연스럽게)
+                                 except: pass
+                                 
+                                 # 페이지 끝 도달 확인
+                                 try:
+                                     new_height = self.driver.execute_script("return document.body.scrollHeight")
+                                     if new_height == last_height:
+                                         self.log(f"📜 페이지 끝 도달 (스크롤 {scroll_count}회)")
+                                         break
+                                     last_height = new_height
+                                 except: break
                             
-                            # 스크롤 실행
-                            self.human_scroll(max_scrolls=2)  # 한 번에 2번씩 스크롤 (더 빠르게)
-                            time.sleep(1)
-                            
-                            self.log(f"  🔽 스크롤 {scroll_attempt + 1}/20 (높이: {current_height})")
-                            
-                            # '검색결과 더보기' 버튼 찾기
-                            xpath_list = ["//*[contains(text(), '검색결과 더보기')]", "//*[contains(text(), '뷰 더보기')]", "//a[contains(@class, 'more_content')]", "//*[contains(text(), 'VIEW 더보기')]", "//*[contains(text(), '블로그 더보기')]"]
+                            # '검색결과 더보기' 버튼 클릭 시도
+                            found_more = False
+                            xpath_list = ["//*[contains(text(), '검색결과 더보기')]", "//*[contains(text(), '뷰 더보기')]", "//a[contains(@class, 'more_content')]", "//*[contains(text(), 'VIEW 더보기')]"]
                             for xp in xpath_list:
                                 try:
                                     btns = self.driver.find_elements(By.XPATH, xp)
-                                    for b in btns:
-                                        if b.is_displayed():
-                                            self.log(f"✅ '블로그 더보기' 버튼 발견! (스크롤 {scroll_attempt + 1}번째)")
-                                            self.mouse.smooth_move_to(b)
-                                            b.click()
+                                    for btn in btns:
+                                        if btn.is_displayed():
+                                            self.log(f"✅ 더보기 버튼 발견 및 클릭: {btn.text}")
+                                            self.mouse.smooth_move_to(btn)
+                                            btn.click()
+                                            time.sleep(3)
                                             found_more = True
                                             break
-                                except: pass
-                                if found_more: break
-                            if found_more: break
-                            
-                            # 페이지 끝에 도달했는지 확인
-                            if current_height == last_height:
-                                self.log(f"⚠️ 페이지 끝 도달 (높이 변화 없음)")
-                                break
-                            last_height = current_height
-                        
-                        if not found_more:
-                            self.log("⚠️ '블로그 더보기' 버튼 못 찾음, 탭 클릭 시도")
-                            try:
-                                tabs = self.driver.find_elements(By.XPATH, "//*[text()='VIEW'] | //*[text()='블로그'] | //*[text()='리뷰']")
-                                for t in tabs:
-                                    if t.is_displayed(): 
-                                        self.log(f"✅ 탭 발견: {t.text}, 클릭")
-                                        t.click(); time.sleep(2); break
-                            except: pass
-                        
-                        time.sleep(2)
-                        self.check_and_switch_tab()
-                        
-                        # [디버깅] 현재 URL 출력
-                        current_url = self.driver.current_url
-                        self.log(f"📍 현재 페이지 URL: {current_url}")
-                        
-                        # [디버깅] 페이지 제목 확인
-                        page_title = self.driver.title
-                        self.log(f"📄 페이지 제목: {page_title}")
-                        
-                        # [추가] JavaScript로 로딩되는 콘텐츠를 위해 충분히 대기
-                        self.log("⏳ 페이지 콘텐츠 로딩 대기 중... (5초)")
-                        time.sleep(5)
-                        
-                        # 페이지를 약간 스크롤해서 lazy loading 트리거
-                        try:
-                            self.driver.execute_script("window.scrollTo(0, 500);")
-                            time.sleep(1)
-                            self.driver.execute_script("window.scrollTo(0, 0);")
-                            time.sleep(1)
-                        except: pass
-                        
-                        self.log(f"📝 글 목록 탐색 시작 (검색 키워드: '{target_kw_check}')")
-                        found_blog = False
-                        max_scroll_tries = 10 if not is_retry else (max_pages * 5)
-                        
-                        for i in range(max_scroll_tries):
-                            if not self.is_running: 
-                                self.log("⛔ 사용자가 중지 요청")
-                                return False
-                            
-                            # [수정] 현재 네이버 블로그 검색 페이지 구조에 맞춘 셀렉터
-                            titles = []
-                            
-                            # 1차: 블로그 링크 직접 검색 (href 기반)
-                            try:
-                                self.log("🔍 블로그 링크 검색 중 (href 기반)...")
-                                blog_links = self.driver.find_elements(By.CSS_SELECTOR, "a[href*='blog.naver.com'], a[href*='m.blog.naver.com']")
-                                if blog_links:
-                                    self.log(f"   📌 {len(blog_links)}개의 블로그 링크 발견 (href 기반)")
-                                    titles = blog_links
-                            except Exception as e:
-                                self.log(f"   ❌ href 기반 검색 실패: {e}")
-                            
-                            # 2차: 텍스트 요소 기반 검색
-                            if len(titles) == 0:
-                                self.log("🔍 텍스트 요소 검색 중 (class 기반)...")
-                                try:
-                                    text_elements = self.driver.find_elements(By.CSS_SELECTOR, "span[class*='ds-comps-text'], a[class*='general_']")
-                                    # 부모 a 태그 찾기
-                                    for elem in text_elements:
-                                        try:
-                                            parent_a = elem.find_element(By.XPATH, "./ancestor::a")
-                                            if parent_a not in titles:
-                                                titles.append(parent_a)
-                                        except: pass
-                                    self.log(f"   📌 {len(titles)}개의 링크 발견 (텍스트 요소 기반)")
-                                except Exception as e:
-                                    self.log(f"   ❌ 텍스트 요소 검색 실패: {e}")
-                            
-                            # 3차: 모든 링크에서 찾기 (최후 수단)
-                            if len(titles) == 0:
-                                self.log("⚠️ 특정 셀렉터로 못 찾음, 모든 링크 검사...")
-                                try:
-                                    all_links = self.driver.find_elements(By.TAG_NAME, "a")
-                                    # href가 있고, 텍스트가 5자 이상인 링크만 필터
-                                    titles = [l for l in all_links if l.text.strip() and len(l.text.strip()) > 5 and l.get_attribute('href')]
-                                    self.log(f"   📌 {len(titles)}개의 링크 발견 (전체 검색)")
+                                    if found_more: break
                                 except: pass
                             
-                            self.log(f"🔍 {len(titles)}개의 제목 발견 (스크롤 {i+1}/{max_scroll_tries})")
-                            
-                            for idx, t in enumerate(titles):
-                                if not self.is_running: break
+                            if not found_more:
+                                self.log("ℹ️ 더보기 버튼 없음 (이미 마지막이거나 못찾음)")
+                            else:
+                                # [중요] 페이지 로딩 대기 추가 (JavaScript 동적 로딩 대응)
+                                self.log("⏳ 페이지 콘텐츠 로딩 대기 중... (5초)")
+                                time.sleep(5)
+                                
+                                # [중요] Lazy Loading 트리거 (스크롤로 동적 콘텐츠 강제 로드)
                                 try:
-                                    txt = t.text.strip()
-                                    href = t.get_attribute('href') or ""
-                                    
-                                    if not txt: continue
-                                    
-                                    # 너무 짧은 제목은 건너뛰기 (메뉴, 버튼 등)
-                                    if len(txt) < 5: continue
-                                    
-                                    # 디버깅: 처음 5개 제목 출력
-                                    if idx < 5:
-                                        self.log(f"  [{idx+1}] {txt[:50]}...")
-                                    
-                                    # [우선순위 1] URL에 타겟 ID가 포함되어 있는지 확인 (가장 정확함)
-                                    if target_link_id and target_link_id in href:
-                                        self.log(f"✅ 블로그 발견 (URL 매칭)! '{txt}'")
-                                        self.log(f"   URL: {href}")
-                                        self.mouse.smooth_move_to(t)
-                                        t.click()
-                                        found_blog = True
-                                        break
-                                    
-                                    # [우선순위 2] 2차 키워드가 제목에 포함되어 있는지 확인
-                                    if target_kw_check and target_kw_check in txt:
-                                        self.log(f"✅ 블로그 발견 (제목 매칭)! '{txt}'")
-                                        self.mouse.smooth_move_to(t)
-                                        t.click()
-                                        found_blog = True
-                                        break
-                                except Exception as e:
-                                    pass
-                            
-                            if found_blog: break
-                            if not self.is_running: break
-                            self.human_scroll(max_scrolls=1)
-                            time.sleep(1)
+                                    self.driver.execute_script("window.scrollTo(0, 500);")  # 아래로
+                                    time.sleep(0.5)
+                                    self.driver.execute_script("window.scrollTo(0, 0);")    # 다시 위로
+                                    self.log("✅ Lazy Loading 트리거 완료")
+                                except: pass
+
+                            # 3단계: 전체 재스캔 (더보기 이후 로드된 게시글 포함)
+                            self.log(f"🔎 2차 스캔: 전체 리스트에서 타겟 탐색 (2차: {target_kw_check}, ID: {target_link_id})")
+                            blog_found = find_blog_post_and_click()
                         
-                        if not found_blog: return False
+                        # 블로그를 찾지 못한 경우
+                        if not blog_found:
+                            self.log("❌ 타겟 블로그를 찾지 못했습니다.")
+                            return False
+
+                        # ===== 블로그 내부 로직 시작 (blog_found = True일 때만 실행됨) =====
+                        self.log("📖 블로그 진입. naver.me 링크 탐색 (천천히 스크롤)...")
                         
-                        # [중요] 블로그 클릭 후 새 탭으로 열렸을 수 있으므로 탭 전환 시도
-                        time.sleep(3)
-                        self.check_and_switch_tab()
-                        self.log(f"📄 현재 탭: {self.driver.title} ({self.driver.current_url})")
-                        
-                        # [수정] 블로그 내에서는 스크롤만, naver.me 링크 찾아서 쇼핑 페이지로 이동
-                        self.log("📖 블로그 진입. naver.me 링크 탐색...")
+                        # iframe 전환 시도
                         is_iframe = False
                         try: 
                             self.driver.switch_to.frame("mainFrame")
@@ -755,84 +792,94 @@ class BotLogic:
                         except: 
                             self.log("ℹ️ iframe 없음, 현재 페이지에서 진행")
                         
-                        # 30~60초간 천천히 스크롤하면서 naver.me 링크 찾기
+                        # 천천히 스크롤하며 naver.me 링크 찾기
+                        # [중요] 블로그 진입 직후 바로 클릭하면 티가 나므로, 최소 시간 동안 스크롤 보장
                         scroll_duration = random.randint(30, 60)
-                        self.log(f"⏱️ {scroll_duration}초간 스크롤하면서 링크 탐색...")
+                        min_scroll_time = random.randint(15, 25)  # 최소 15~25초는 무조건 스크롤
+                        self.log(f"⏱️ {scroll_duration}초간 천천히 스크롤하며 naver.me 링크 탐색 (최소 {min_scroll_time}초 읽기)...")
                         start_read = time.time()
-                        found_link = None
+                        found_target_link = None
+                        link_found_time = None  # 링크 발견 시각 기록
                         
                         while time.time() - start_read < scroll_duration:
-                            if not self.is_running: 
-                                self.log("⛔ 사용자가 중지 요청")
+                            if not self.is_running: break
+                            
+                            elapsed = time.time() - start_read
+                            
+                            # 1. naver.me 링크 탐색 (찾아도 최소 시간 전에는 저장만)
+                            # [중요] 블로그 자체 URL(blog.naver.com)은 제외하고, 실제 판매 링크(naver.me, smartstore 등)만 찾기
+                            if not found_target_link:  # 아직 안 찾았으면 계속 탐색
+                                try:
+                                    links = self.driver.find_elements(By.TAG_NAME, "a")
+                                    for l in links:
+                                        href = l.get_attribute("href")
+                                        if not href: continue
+                                        
+                                        # [필터링] 블로그 자체 링크 제외 (blog.naver.com, m.blog.naver.com)
+                                        if "blog.naver.com" in href or "m.blog.naver.com" in href:
+                                            continue
+                                        
+                                        # [우선순위 1] naver.me 패턴 (가장 일반적인 판매 링크)
+                                        if "naver.me" in href:
+                                            found_target_link = l
+                                            link_found_time = time.time()
+                                            self.log(f"🔍 판매 링크 발견! (naver.me) {href} - 자연스럽게 스크롤 계속...")
+                                            break
+                                        # [우선순위 2] 스마트스토어 직접 링크
+                                        elif "smartstore.naver.com" in href:
+                                            found_target_link = l
+                                            link_found_time = time.time()
+                                            self.log(f"🔍 판매 링크 발견! (스마트스토어) {href} - 자연스럽게 스크롤 계속...")
+                                            break
+                                        # [우선순위 3] 네이버 쇼핑 상품 링크
+                                        elif "shopping.naver.com" in href and "/products/" in href:
+                                            found_target_link = l
+                                            link_found_time = time.time()
+                                            self.log(f"🔍 판매 링크 발견! (쇼핑) {href} - 자연스럽게 스크롤 계속...")
+                                            break
+                                        # [우선순위 4] product_link 필드 값과 일치 (사용자 지정)
+                                        elif product_link and product_link in href:
+                                            found_target_link = l
+                                            link_found_time = time.time()
+                                            self.log(f"🔍 판매 링크 발견! (필드 매칭) {href} - 자연스럽게 스크롤 계속...")
+                                            break
+                                except: pass
+                            
+                            # 2. 최소 시간 경과 + 링크 발견 시 종료
+                            if found_target_link and elapsed >= min_scroll_time:
+                                self.log(f"✅ 최소 읽기 시간 충족 ({int(elapsed)}초). 판매 링크 클릭 준비...")
                                 break
                             
-                            # [수정] 판매링크 필드 사용
-                            try:
-                                links = self.driver.find_elements(By.TAG_NAME, "a")
-                                for l in links:
-                                    try:
-                                        href = l.get_attribute("href") or ""
-                                        # 우선순위 1: product_link가 있으면 그것으로 찾기
-                                        if product_link and product_link in href:
-                                            self.log(f"✅ 판매 링크 발견! (필드 매칭) {href}")
-                                            found_link = l
-                                            break
-                                        # 우선순위 2: naver.me 라는 일반적인 패턴
-                                        elif not product_link and "naver.me" in href:
-                                            self.log(f"✅ 판매 링크 발견! (naver.me) {href}")
-                                            found_link = l
-                                            break
-                                        # 우선순위 3: target_link_id 폴백
-                                        elif not product_link and target_link_id and target_link_id in href:
-                                            self.log(f"✅ 판매 링크 발견! (ID 매칭) {href}")
-                                            found_link = l
-                                            break
-                                    except: pass
-                                
-                                if found_link:
-                                    break
-                            except: pass
-                            
-                            # [수정] 스크롤 로직 개선 (키보드 활용)
+                            # 3. 천천히 스크롤 (자연스럽게)
                             try:
                                 body = self.driver.find_element(By.TAG_NAME, "body")
-                                # 랜덤하게 아래 화살표 또는 PageDown 사용
-                                if random.random() < 0.7:
-                                    for _ in range(random.randint(2, 5)):
-                                        body.send_keys(Keys.ARROW_DOWN)
-                                        time.sleep(0.1)
-                                else:
-                                    body.send_keys(Keys.PAGE_DOWN)
-                                
-                                # 현재 스크롤 위치 로그 (디버깅용)
-                                scroll_y = self.driver.execute_script("return window.scrollY;")
-                                # self.log(f"   📜 스크롤 위치: {scroll_y}")  # 너무 잦은 로그 방지 위해 주석 처리
-                            except Exception as e:
-                                self.log(f"⚠️ 스크롤 시도 중 에러: {e}")
-                                # JS 스크롤 백업
+                                for _ in range(random.randint(1, 3)):
+                                    body.send_keys(Keys.ARROW_DOWN)
+                                    time.sleep(0.2)
+                            except: 
                                 self.human_scroll(max_scrolls=1)
                             
-                            time.sleep(random.uniform(1.5, 3.0))
-                        
-                        # naver.me 링크 클릭해서 쇼핑 페이지로 이동
-                        if found_link:
+                            time.sleep(random.uniform(1.0, 2.0))
+                            
+                        # naver.me 링크 발견 시 클릭 및 쇼핑 페이지 이동
+                        if found_target_link:
                             self.log("🛒 판매 링크 클릭! 쇼핑 페이지로 이동...")
                             try:
-                                self.mouse.smooth_move_to(found_link)
-                                found_link.click()
-                                if is_iframe: 
-                                    self.driver.switch_to.default_content()
-                                time.sleep(3)
+                                self.mouse.smooth_move_to(found_target_link)
+                                time.sleep(random.uniform(1, 2.5))  # 마우스 이동 후 자연스러운 대기
+                                found_target_link.click()
+                                if is_iframe: self.driver.switch_to.default_content()
+                                time.sleep(random.uniform(2, 4))  # 페이지 로딩 대기 (자연스럽게)
                                 self.check_and_switch_tab()
                                 self.log("✅ 쇼핑 상세 페이지 진입 성공")
-                                return True  # Success! 이제 상세 페이지 로직 실행됨
+                                time.sleep(random.uniform(1, 2))  # 쇼핑 페이지 진입 후 잠시 관찰
+                                return True
                             except Exception as e:
                                 self.log(f"❌ 링크 클릭 실패: {e}")
                         else:
-                            self.log("❌ naver.me 링크를 찾지 못함")
-                        
-                        if is_iframe: 
-                            self.driver.switch_to.default_content()
+                            self.log("❌ 판매 링크(naver.me)를 찾지 못했습니다.")
+                            
+                        if is_iframe: self.driver.switch_to.default_content()
                         return False
 
                     success = False
@@ -899,19 +946,21 @@ class BotLogic:
                     if not self.is_running: break
                     try:
                         self.mouse.smooth_move_to(thumbs[i])
+                        time.sleep(random.uniform(0.5, 1.5))  # 마우스 이동 후 자연스러운 대기
                         thumbs[i].click()
-                        time.sleep(random.uniform(1.5, 3.0))
+                        time.sleep(random.uniform(1.5, 3.0))  # 이미지 감상 시간
                     except: pass
         except: pass
         
         # 2. 상세정보 펼쳐보기 (필수)
         try:
-            time.sleep(1)
+            time.sleep(random.uniform(1, 2))  # 페이지 로딩 후 자연스러운 탐색
             expand_btn = self.driver.find_element(By.XPATH, "//*[contains(text(), '펼쳐보기') or contains(text(), '상품정보 더보기')]")
             self.mouse.smooth_move_to(expand_btn)
+            time.sleep(random.uniform(0.5, 1.5))  # 버튼 확인 후 클릭 전 대기
             expand_btn.click()
             self.log("상세정보 더보기 클릭 완료")
-            time.sleep(1)
+            time.sleep(random.uniform(2, 3))  # 상세정보 로딩 대기
         except: pass
         
         # 3. 옵션 선택 시뮬레이션 (구매 의도 강력 신호)
@@ -919,17 +968,18 @@ class BotLogic:
             self.log("옵션 선택 시뮬레이션...")
             opt_btn = self.driver.find_element(By.XPATH, "//a[contains(text(), '옵션') or contains(@class, 'option')] | //div[contains(@class, 'Option_option')]")
             self.mouse.smooth_move_to(opt_btn)
+            time.sleep(random.uniform(0.5, 1.5))  # 옵션 버튼 확인 후 클릭 전 대기
             opt_btn.click()
-            time.sleep(random.uniform(1.0, 2.0))
+            time.sleep(random.uniform(1.0, 2.0))  # 옵션 목록 로딩 대기
             
             opts = self.driver.find_elements(By.TAG_NAME, "li")
             if opts:
                 target_opt = random.choice(opts[:5])
                 self.mouse.smooth_move_to(target_opt)
-                time.sleep(0.5)
+                time.sleep(random.uniform(0.8, 1.5))  # 옵션 고민 시간
             
             ActionChains(self.driver).move_by_offset(50, 50).click().perform()
-            time.sleep(1)
+            time.sleep(random.uniform(1, 2))  # 옵션 닫기 후 대기
         except: pass
         
         # 4. 정독(Deep Read) 스크롤링 & 랜덤 액션
@@ -1136,7 +1186,7 @@ class LoginDialog(tk.Toplevel):
 class BotApp:
     def __init__(self, root, expiration_date=None):
         self.root = root
-        title = "네이버 쇼핑/블로그 멀티 봇 v4.2 (Secure Commercial)"
+        title = "네이버 쇼핑/블로그 멀티 봇 v4.3 (Final Polish)"
         self.root.title(title)
         self.root.geometry("720x980") 
         
@@ -1183,7 +1233,7 @@ class BotApp:
         # [NEW] 혼합 모드 체크박스 (별도 행 - 공통 설정 아래)
         f_mid = tk.Frame(self.root)
         f_mid.pack(fill="x", padx=10, pady=0)
-        self.var_mixed = tk.BooleanVar(value=self.config.get("mixed_mode", False))
+        self.var_mixed = tk.BooleanVar(value=self.config.get("mixed_mode", True))
         chk_mix = tk.Checkbutton(f_mid, text="✨ 네이버 쇼핑 + 블로그 바이럴 (통합 사이클 실행)", 
                                variable=self.var_mixed, font=("Arial", 10, "bold"), fg="#3f51b5")
         chk_mix.pack(pady=5)
@@ -1219,9 +1269,9 @@ class BotApp:
         lbl_id = "상품ID:" if mode == "shopping" else "식별자:"
         tk.Label(f_in, text=lbl_id).grid(row=0, column=4)
         e_id = tk.Entry(f_in, width=10); e_id.grid(row=0, column=5)
-        # [추가] 판매링크 필드 (블로그 모드에서만 표시)
+        # [수정] 판매링크 -> 타겟 링크 (블로그 모드에서만 표시)
         if mode == "blog":
-            tk.Label(f_in, text="판매링크:").grid(row=0, column=6)
+            tk.Label(f_in, text="타겟 링크:").grid(row=0, column=6)
             e_plink = tk.Entry(f_in, width=15); e_plink.grid(row=0, column=7)
             btn_f = tk.Frame(f_in); btn_f.grid(row=0, column=8, columnspan=3, padx=5)
         else:
@@ -1369,44 +1419,32 @@ class BotApp:
 
 def main():
     try:
-        root = tk.Tk()
-        root.withdraw() # 메인 창 숨김
-
-        # 1. 로그인 시도
-        login_dialog = LoginDialog(root)
-        root.wait_window(login_dialog) # 로그인 창이 닫칠 때까지 대기
-
-        # 2. 로그인 결과 확인
-        if login_dialog.token:
-            # 로그인 성공 시 메인 창 표시
-            root.deiconify()
+        # 1. 라이선스 체크 (시리얼 키 & MAC 주소 검증)
+        try:
+            from license_check import check_license
+            # check_license()는 유효하지 않으면 내부에서 UI로 키 입력을 받거나 종료함
+            # 유효하면 데이터를 반환
+            lic_data = check_license()
             
-            # 사용자 정보 전역 변수 또는 BotApp에 전달 (여기서는 임시로 전역 변수 활용 가능하나, BotApp 내부 수정이 필요할 수 있음)
-            # 현재 BotApp은 LICENSE_DATA 전역 변수를 참조하므로 이를 업데이트
+            if not lic_data or not lic_data.get("valid"):
+                # check_license에서 이미 처리했겠지만 안전장치
+                sys.exit(0)
+                
+            # 전역 변수에 라이선스 정보 설정 (BotApp에서 사용)
             global LICENSE_DATA
-            if login_dialog.user_info:
-                u = login_dialog.user_info
-                # 라이선스 정보가 있다면 가져오기 (없으면 Trial로 가정)
-                # API 응답 구조에 따라 조정 필요
-                days_left = 30 # 기본값
-                company = u.get("company_name") or u.get("username")
-                
-                # 라이선스 API 호출하여 정확한 만료일 가져오기 (선택 사항)
-                # 여기서는 로그인 성공 자체를 라이선스 유효로 간주
-                
-                LICENSE_DATA = {
-                    "status": "active",
-                    "days_remaining": days_left,
-                    "expiration_date": "2099-12-31",
-                    "memo": company
-                }
+            LICENSE_DATA = lic_data
             
-            app = BotApp(root)
-            root.mainloop()
-        else:
-            # 로그인 실패 또는 창 닫음 -> 종료
-            root.destroy()
-            sys.exit()
+        except ImportError:
+            # 라이선스 모듈이 없는 경우 (개발 환경 등) - 경고 후 진행 여부 결정
+            # 상용 배포판에서는 이 경로가 없어야 함
+            messagebox.showwarning("경고", "라이선스 모듈(license_check.py)을 찾을 수 없습니다.\n데모 모드로 실행됩니다.")
+            LICENSE_DATA = {"valid": True, "memo": "DEMO MODE", "days_remaining": 0}
+
+        # 2. 봇 실행
+        root = tk.Tk()
+        # BotApp 초기화 - 라이선스 만료일 전달
+        app = BotApp(root, expiration_date=LICENSE_DATA.get("expiration_date"))
+        root.mainloop()
 
     except Exception as e:
         print(f"Main Error: {e}")

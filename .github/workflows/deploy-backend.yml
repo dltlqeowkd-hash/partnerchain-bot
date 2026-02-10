@@ -23,7 +23,7 @@ jobs:
       - name: Deploy to Railway
         run: railway up --service backend
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: "${{ secrets.RAILWAY_TOKEN }}"
         working-directory: ./backend
       
       - name: Notify deployment status

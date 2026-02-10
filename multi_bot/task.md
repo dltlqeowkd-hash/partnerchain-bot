@@ -1,5 +1,9 @@
 # Naver Multi-Bot Refinement Task List
 
+- [x] **Revert to v4.2 Secure Commercial Version** (Restored based on user request & screenshot)
+    - [x] Restore UI (Company Name, Integrated Cycle Checkbox, Smart Schedule)
+    - [x] Restore Logic (Integrated Loop, Blog Tab Switch Fix)
+
 - [/] Refine Blog Mode Search Logic
     - [ ] Implement `click_more_results` helper function (Search Result More).
     - [ ] Implement 1st Keyword Search -> Scroll (Max 10) loop.

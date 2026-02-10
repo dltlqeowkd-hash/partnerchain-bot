@@ -70,10 +70,10 @@ jobs:
       - name: Upload to Cloudflare R2
         uses: shallwefootball/s3-upload-action@master
         with:
-          aws_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws_bucket: ${{ secrets.R2_BUCKET_NAME }}
-          endpoint: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          aws_key_id: "${{ secrets.R2_ACCESS_KEY_ID }}"
+          aws_secret_access_key: "${{ secrets.R2_SECRET_ACCESS_KEY }}"
+          aws_bucket: "${{ secrets.R2_BUCKET_NAME }}"
+          endpoint: "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
           source_dir: dist/
           destination_dir: ''
       

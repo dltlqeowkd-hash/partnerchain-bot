@@ -10,7 +10,7 @@
         "click_delay_min": 1000,
         "click_delay_max": 2000
     },
-    "smart_schedule": true,
+    "smart_schedule": false,
     "include_ads": false,
     "max_pages": 3,
     "targets_shopping": [
